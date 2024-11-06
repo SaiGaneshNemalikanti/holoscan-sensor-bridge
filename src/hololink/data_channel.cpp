@@ -32,6 +32,21 @@ namespace {
     // Camera Receiver interfaces
     constexpr uint32_t VP_START[] { 0x00, 0x80 };
 
+    /** Hololink-lite data plane configuration is implied by the value
+     * passed in the bootp transaction_id field, which is coopted
+     * by FPGA to imply which port is publishing the request.  We use
+     * that port ID to figure out what the address of the port's
+     * configuration data is; which is the value listed here.
+     */
+    struct HololinkChannelConfiguration {
+        uint32_t configuration_address;
+        uint32_t vip_mask;
+    };
+    static const std::map<int, HololinkChannelConfiguration> BOOTP_TRANSACTION_ID_MAP {
+        { 0, HololinkChannelConfiguration { 0x02000000, 0x1 } },
+        { 1, HololinkChannelConfiguration { 0x02010000, 0x2 } },
+    };
+
 } // anonymous namespace
 
 DataChannel::DataChannel(const Metadata& metadata, const std::function<std::shared_ptr<Hololink>(const Metadata& metadata)>& create_hololink)
@@ -48,6 +63,7 @@ DataChannel::DataChannel(const Metadata& metadata, const std::function<std::shar
     address_ = metadata.get<int64_t>("configuration_address").value();
     peer_ip_ = metadata.get<std::string>("peer_ip").value();
     vip_mask_ = metadata.get<int64_t>("vip_mask").value();
+    sensor_ = metadata.get<int64_t>("sensor").value();
     qp_number_ = 0;
     rkey_ = 0;
 }
@@ -107,7 +123,7 @@ void DataChannel::configure_internal(uint64_t frame_size, uint32_t payload_size,
     // Clearing DP_VIP_MASK should be unnecessary-- we should only
     // be here following a reset, but be defensive and make
     // sure we're not transmitting anything while we update.
-    write_uint32(DP_VIP_MASK, 0);
+    hololink_->and_uint32(DP_VIP_MASK + address_, ~vip_mask_);
     write_uint32(DP_PACKET_SIZE, header_size + payload_size);
     write_uint32(DP_HOST_MAC_LOW, mac_low);
     write_uint32(DP_HOST_MAC_HIGH, mac_high);
@@ -121,16 +137,36 @@ void DataChannel::configure_internal(uint64_t frame_size, uint32_t payload_size,
     // We write the same addressing information into both VPs for
     // this ethernet port; DP_VIP_MASK from the map above selects
     // which one of these is actually used in the hardware.
-    for (auto&& vp : VP_START) {
-        write_uint32(DP_ROCE_CFG + vp, qp_number & 0x00FF'FFFF);
-        write_uint32(DP_ROCE_RKEY_0 + vp, rkey);
-        write_uint32(DP_ROCE_VADDR_MSB_0 + vp, (address >> 32));
-        write_uint32(DP_ROCE_VADDR_LSB_0 + vp, (address & 0xFFFF'FFFF));
-        write_uint32(DP_ROCE_BUF_END_MSB_0 + vp, ((address + size) >> 32));
-        write_uint32(DP_ROCE_BUF_END_LSB_0 + vp, ((address + size) & 0xFFFF'FFFF));
-    }
+    auto vp = VP_START[sensor_];
+    write_uint32(DP_ROCE_CFG + vp, qp_number & 0x00FF'FFFF);
+    write_uint32(DP_ROCE_RKEY_0 + vp, rkey);
+    write_uint32(DP_ROCE_VADDR_MSB_0 + vp, (address >> 32));
+    write_uint32(DP_ROCE_VADDR_LSB_0 + vp, (address & 0xFFFF'FFFF));
+    write_uint32(DP_ROCE_BUF_END_MSB_0 + vp, ((address + size) >> 32));
+    write_uint32(DP_ROCE_BUF_END_LSB_0 + vp, ((address + size) & 0xFFFF'FFFF));
     // 0x1 meaning to connect sensor 1 to the current ethernet port
-    write_uint32(DP_VIP_MASK, vip_mask_);
+    hololink_->or_uint32(DP_VIP_MASK + address_, vip_mask_);
+}
+
+/* static */ void DataChannel::use_data_plane(Metadata& metadata, int64_t data_plane)
+{
+    auto channel_configuration = BOOTP_TRANSACTION_ID_MAP.find(data_plane);
+    if (channel_configuration == BOOTP_TRANSACTION_ID_MAP.cend()) {
+        throw std::runtime_error(fmt::format("use_data_plane failed, data_plane={} is out-of-range.", data_plane));
+    }
+    HOLOSCAN_LOG_TRACE(fmt::format("data_plane={}", data_plane));
+    metadata["configuration_address"] = channel_configuration->second.configuration_address;
+}
+
+/* static */ void DataChannel::use_sensor(Metadata& metadata, int64_t sensor_number)
+{
+    auto channel_configuration = BOOTP_TRANSACTION_ID_MAP.find(sensor_number);
+    if (channel_configuration == BOOTP_TRANSACTION_ID_MAP.cend()) {
+        throw std::runtime_error(fmt::format("use_sensor failed, sensor_number={} is out-of-range.", sensor_number));
+    }
+    HOLOSCAN_LOG_TRACE(fmt::format("sensor_number={}", sensor_number));
+    metadata["sensor"] = sensor_number;
+    metadata["vip_mask"] = channel_configuration->second.vip_mask;
 }
 
 } // namespace hololink

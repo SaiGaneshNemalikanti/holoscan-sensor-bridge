@@ -94,10 +94,18 @@ public:
 };
 
 /**
+ * Defined in data_channel.hpp.
+ */
+class DataChannel;
+
+/**
  * @brief
  *
  */
 class Hololink {
+    /** DataChannel calls some methods we don't want to share. */
+    friend class DataChannel;
+
 public:
     /**
      * @brief Construct a new Hololink object
@@ -439,6 +447,25 @@ protected:
      */
     virtual void executed(double request_time, const std::vector<uint8_t>& request, double reply_time,
         const std::vector<uint8_t>& reply);
+
+    /**
+     * Return a named semaphore that guarantees singleton access
+     * to misc Hololink device resources, across all processes
+     * on the current machine.  and_uint32 and or_uint32 use this.
+     */
+    NamedLock& lock();
+
+    /**
+     * Clears any bits of the given memory location with
+     * the bits not set in mask.
+     */
+    bool and_uint32(uint32_t address, uint32_t mask);
+
+    /**
+     * Sets any bits of the given memory location with
+     * the bits set in the mask.
+     */
+    bool or_uint32(uint32_t address, uint32_t mask);
 
 private:
     const std::string peer_ip_;

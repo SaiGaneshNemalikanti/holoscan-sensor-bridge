@@ -529,6 +529,7 @@ class TestServer:
             "peer_ip": self._server_address,
             "control_port": self._control_port,
             "configuration_address": 0x1A00,
+            "sensor": 0,
             "serial_number": "AA55",
             "cpnx_version": 0x2402,
             "vip_mask": 1,

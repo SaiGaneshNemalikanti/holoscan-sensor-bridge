@@ -39,25 +39,6 @@
 
 #include <holoscan/logger/logger.hpp>
 
-namespace {
-
-/** Hololink-lite data plane configuration is implied by the value
- * passed in the bootp transaction_id field, which is coopted
- * by FPGA to imply which port is publishing the request.  We use
- * that port ID to figure out what the address of the port's
- * configuration data is; which is the value listed here.
- */
-struct HololinkChannelConfiguration {
-    uint32_t configuration_address;
-    uint32_t vip_mask;
-};
-static const std::map<int, HololinkChannelConfiguration> BOOTP_TRANSACTION_ID_MAP {
-    { 0, HololinkChannelConfiguration { 0x02000000, 0x1 } },
-    { 1, HololinkChannelConfiguration { 0x02010000, 0x2 } },
-};
-
-} // anonynous namespace
-
 namespace hololink {
 
 namespace {
@@ -308,12 +289,9 @@ Enumerator::Enumerator(const std::string& local_interface, uint32_t enumeration_
             auto transaction_id = metadata.get<int64_t>("transaction_id"); // may not exist
             if (transaction_id) {
                 HOLOSCAN_LOG_TRACE(fmt::format("transaction_id={}", transaction_id.value()));
-                auto channel_configuration = BOOTP_TRANSACTION_ID_MAP.find(transaction_id.value());
-                if (channel_configuration != BOOTP_TRANSACTION_ID_MAP.cend()) {
-                    channel_metadata["configuration_address"]
-                        = channel_configuration->second.configuration_address;
-                    channel_metadata["vip_mask"] = channel_configuration->second.vip_mask;
-                }
+                int64_t sensor_number = transaction_id.value();
+                DataChannel::use_data_plane(channel_metadata, sensor_number);
+                DataChannel::use_sensor(channel_metadata, sensor_number);
             }
 
             // Do we have the information we need?

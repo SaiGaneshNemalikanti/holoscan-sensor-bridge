@@ -151,6 +151,10 @@ PYBIND11_MODULE(_hololink, m)
             }
             return metadata;
         }))
+        .def(py::init([](const Metadata& source) {
+            auto metadata = std::make_shared<Metadata>(source);
+            return metadata;
+        }))
         /**
          * @returns an iterator object that can iterate over all objects in Metadata
          */
@@ -241,7 +245,8 @@ PYBIND11_MODULE(_hololink, m)
         .def("authenticate", &DataChannel::authenticate, "qp_number"_a, "rkey"_a)
         .def("configure", &DataChannel::configure, "frame_address"_a, "frame_size"_a,
             "local_data_port"_a)
-        .def("write_uint32", &DataChannel::write_uint32, "address"_a, "value"_a);
+        .def("write_uint32", &DataChannel::write_uint32, "address"_a, "value"_a)
+        .def_static("use_sensor", &DataChannel::use_sensor, "metadata"_a, "sensor_number"_a);
 
     py::register_exception<TimeoutError>(m, "TimeoutError");
     py::register_exception<UnsupportedVersion>(m, "UnsupportedVersion");

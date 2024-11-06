@@ -1055,6 +1055,7 @@ def manual_enumeration(args):
         "control_port": 8192,
         "cpnx_version": 0x2402,
         "peer_ip": args.hololink,
+        "sensor": 0,
         "serial_number": "100",
         "vip_mask": 0,
         "board_id": 2,

@@ -979,6 +979,12 @@ Hololink::NamedLock& Hololink::spi_lock()
     return lock;
 }
 
+Hololink::NamedLock& Hololink::lock()
+{
+    static NamedLock lock("hololink-lock");
+    return lock;
+}
+
 void Hololink::on_reset(std::shared_ptr<Hololink::ResetController> reset_controller)
 {
     reset_controllers_.push_back(reset_controller);
@@ -1008,6 +1014,22 @@ bool Hololink::ptp_synchronize(const std::shared_ptr<Timeout>& timeout)
 
     // Time is sync'd now.
     return true;
+}
+
+bool Hololink::and_uint32(uint32_t address, uint32_t mask)
+{
+    std::lock_guard lock(this->lock());
+    uint32_t value = read_uint32(address);
+    value &= mask;
+    return write_uint32(address, value);
+}
+
+bool Hololink::or_uint32(uint32_t address, uint32_t mask)
+{
+    std::lock_guard lock(this->lock());
+    uint32_t value = read_uint32(address);
+    value |= mask;
+    return write_uint32(address, value);
 }
 
 } // namespace hololink

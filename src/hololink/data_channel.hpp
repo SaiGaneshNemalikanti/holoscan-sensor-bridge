@@ -110,6 +110,20 @@ public:
      */
     bool write_uint32(uint32_t reg, uint32_t value);
 
+    /**
+     * Configure the given metadata to exchange data from the
+     * given sensor port.  Given enumeration data for a specific
+     * IP address, use this call to configure the sensor to listen
+     * to.  Multiple sensors can transmit using the same IP address.
+     */
+    static void use_sensor(Metadata& metadata, int64_t sensor_number);
+
+    /**
+     * Configure the given metadata to send data to the given
+     * host interface.
+     */
+    static void use_data_plane(Metadata& metadata, int64_t data_plane);
+
 private:
     std::shared_ptr<Hololink> hololink_;
     uint32_t address_;
@@ -117,6 +131,7 @@ private:
     uint32_t vip_mask_;
     uint32_t qp_number_;
     uint32_t rkey_;
+    uint32_t sensor_;
 
     void configure_internal(uint64_t frame_size, uint32_t payload_size, uint32_t header_size,
         const native::MacAddress& local_mac, const std::string& local_ip, uint32_t local_data_port,
