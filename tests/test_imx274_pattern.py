@@ -87,6 +87,14 @@ class PatternTestApplication(holoscan.core.Application):
         self._bucket_count_right = 0
         self._bucket_count_left_trigger = 10
         self._bucket_count_right_trigger = 10
+        # These are HSDK controls-- because we have stereo
+        # camera paths going into the same visualizer, don't
+        # raise an error when each path present metadata
+        # with the same names.  Because we don't use that metadata,
+        # it's easiest to just ignore new items with the same
+        # names as existing items.
+        self.is_metadata_enabled = True
+        self.metadata_policy = holoscan.core.MetadataPolicy.REJECT
 
     def compose(self):
         logging.info("compose")
